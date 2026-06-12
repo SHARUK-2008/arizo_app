@@ -5,20 +5,25 @@ allprojects {
     }
 }
 
-val newBuildDir: Directory =
-    rootProject.layout.buildDirectory
-        .dir("../../build")
-        .get()
-rootProject.layout.buildDirectory.value(newBuildDir)
+subprojects {
+    afterEvaluate {
+        val androidExtension =
+            extensions.findByName("android") ?: return@afterEvaluate
 
-subprojects {
-    val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
-    project.layout.buildDirectory.value(newSubprojectBuildDir)
-}
-subprojects {
-    project.evaluationDependsOn(":app")
+        try {
+            val nsMethod = androidExtension.javaClass.getMethod("getNamespace")
+            val currentNs = nsMethod.invoke(androidExtension) as? String
+            if (currentNs.isNullOrBlank()) {
+                val setNs = androidExtension.javaClass
+                    .getMethod("setNamespace", String::class.java)
+                setNs.invoke(androidExtension, group.toString())
+            }
+        } catch (_: Exception) {
+            // Extension doesn't support namespace — skip silently
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {
-    delete(rootProject.layout.buildDirectory)
+    delete(layout.buildDirectory)
 }
